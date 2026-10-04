@@ -1,53 +1,61 @@
-# Sistema de Cadastro DB Java
+# Cadastro de Funcionários (Java + JDBC + MySQL)
 
-Este projeto é um sistema simples de cadastro de funcionários utilizando **Java**, **JDBC** e **MySQL**.  
-Ele permite **listar**, **cadastrar** e **deletar** funcionários no banco de dados, tudo via console.
+[![CI](https://github.com/Brunacoelhob/estudo-java-cadastro-jdbc/actions/workflows/ci.yml/badge.svg)](https://github.com/Brunacoelhob/estudo-java-cadastro-jdbc/actions/workflows/ci.yml)
+![Java](https://img.shields.io/badge/java-21-orange)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
----
+Aplicação de console para **listar, cadastrar e remover funcionários** em um banco MySQL, usando JDBC puro. Projeto de estudo organizado em camadas, com testes automatizados e execução via Docker.
 
-## 🚀 Funcionalidades
+## Arquitetura
 
-✅ Listar funcionários  
-✅ Cadastrar novo funcionário  
-✅ Deletar funcionário por ID  
+```
+console/Menu  ──►  service/FuncionarioServico  ──►  repository/FuncionarioRepositorio (interface)
+ (entrada/saída)     (regras de negócio)                 └─ FuncionarioRepositorioJdbc (SQL)
+```
 
----
+- **Menu**: só conversa com o usuário; entrada/saída injetadas (por isso é testável).
+- **Serviço**: valida nome, matrícula positiva e única, departamento existente.
+- **Repositório**: SQL 100% parametrizado (`PreparedStatement`), conexões fechadas com *try-with-resources*.
+- **Banco**: `UNIQUE` na matrícula e chave estrangeira garantem as regras mesmo sob concorrência.
 
-## 🛠 Tecnologias usadas
+## O que foi melhorado em relação à primeira versão
 
-- Java 21 (ou compatível)
-- JDBC (com MySQL Connector)
-- MySQL
-- IntelliJ IDEA (ou outra IDE)
+| Antes | Agora |
+|---|---|
+| Senha do banco escrita no código | Configuração por variáveis de ambiente (`DB_PASSWORD`) |
+| Conexões nunca fechadas | try-with-resources em todo acesso |
+| `InputMismatchException` derrubava o programa | Entrada inválida pergunta de novo |
+| Erros com `printStackTrace` | Mensagens amigáveis, sem vazar detalhe técnico |
+| Sem validação | Nome, matrícula e departamento validados + restrições no banco |
+| JAR do driver versionado e `.idea` | Maven gerencia dependências |
+| Sem testes | 24 testes (unidade, banco H2 em modo MySQL, console) |
 
----
+## Como executar
 
-## 💾 Configuração do Banco de Dados
+### Com Docker (recomendado)
 
-Execute o script `model.sql` no seu MySQL:
+```bash
+cp .env.example .env            # defina DB_PASSWORD no arquivo .env
+docker compose up -d db         # MySQL com schema e dados de exemplo
+docker compose run --rm app     # abre o menu
+```
 
-```sql
-DROP DATABASE IF EXISTS db_java;
-CREATE DATABASE db_java;
-USE db_java;
+### Sem Docker
 
-CREATE TABLE departamento (
-  idDepartamento INT NOT NULL AUTO_INCREMENT,
-  nome VARCHAR(45) NOT NULL,
-  sigla VARCHAR(45) NOT NULL,
-  PRIMARY KEY (idDepartamento)
-);
+Requer Java 21, Maven e um MySQL com o schema aplicado (`src/main/resources/db/schema.sql`).
 
-CREATE TABLE funcionario (
-  idFuncionario INT NOT NULL AUTO_INCREMENT,
-  nome VARCHAR(45) NOT NULL,
-  matricula INT NOT NULL,
-  departamento_FK INT,
-  PRIMARY KEY (idFuncionario),
-  CONSTRAINT FK_Departamento FOREIGN KEY (departamento_FK) REFERENCES departamento(idDepartamento)
-);
+```bash
+export DB_PASSWORD=sua_senha     # opcional: DB_USER (padrão root) e DB_URL
+mvn package
+java -jar target/cadastro-funcionarios.jar
+```
 
-INSERT INTO departamento (nome, sigla) VALUES
-('Desenvolvimento', 'DEV'),
-('Qualidade', 'QA'),
-('Engenharia', 'ENG');
+## Testes
+
+```bash
+mvn verify
+```
+
+## Licença
+
+[MIT](LICENSE)

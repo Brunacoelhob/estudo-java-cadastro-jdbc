@@ -1,0 +1,40 @@
+# MySQL + aplicação de console.
+#   cp .env.example .env        (defina DB_PASSWORD)
+#   docker compose up -d db     (sobe o banco, cria o schema e os dados de exemplo)
+#   docker compose run --rm app (abre o menu interativo)
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+      MYSQL_DATABASE: db_java
+    volumes:
+      - dados:/var/lib/mysql
+      # Os scripts rodam em ordem alfabética na primeira inicialização.
+      - ./src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./src/main/resources/db/dados-exemplo.sql:/docker-entrypoint-initdb.d/02-dados.sql:ro
+    ports:
+      - '127.0.0.1:3306:3306' # só acessível da sua máquina
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" --silent']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    profiles: ['app']
+    stdin_open: true
+    tty: true
+    environment:
+      DB_URL: jdbc:mysql://db:3306/db_java?serverTimezone=UTC
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  dados:
